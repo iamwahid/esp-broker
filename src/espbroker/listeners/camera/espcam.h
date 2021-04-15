@@ -26,7 +26,7 @@
 #include <SPIFFS.h>
 #include <FS.h>
 
-#include "../base.h"
+#include "../../core/listener.h"
 
 namespace Modules {
 
@@ -50,7 +50,7 @@ class ESPCamCombo: public Listener {
 
   ESPCamCombo(): Listener(ListenerType::EXTENDED) {}
 
-  private:
+  protected:
   String incomingByte;
   // Photo File Name to save in SPIFFS
   

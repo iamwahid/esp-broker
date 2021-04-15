@@ -141,7 +141,7 @@ void EspNowMQBroadcastClass::processScan()
 #endif
 
   const int MAX_PEERS = 20;
-  EspNowMQPeerInfo oldPeers[MAX_PEERS];
+  WifiNowPeer oldPeers[MAX_PEERS];
   int nOldPeers = std::min(EspNowMQ.listPeers(oldPeers, MAX_PEERS), MAX_PEERS);
   const uint8_t PEER_FOUND = 0xFF; // assigned to .channel to indicate peer is matched
 

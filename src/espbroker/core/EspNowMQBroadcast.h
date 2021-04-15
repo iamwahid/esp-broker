@@ -1,16 +1,13 @@
-#ifndef ESPNOW_MQ_LISTENER_H
-#define ESPNOW_MQ_LISTENER_H
+#pragma once
 
 #include "EspNowMQ.h"
 
 #include <WString.h>
 
-class EspNowMQListenerClass
+class EspNowMQBroadcastClass
 {
 public:
-  uint8_t new_listener[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-  bool updatePeer = false;
-  EspNowMQListenerClass();
+  EspNowMQBroadcastClass();
 
   /**
    * @brief Initialize ESP-NOW with pseudo broadcast.
@@ -52,7 +49,7 @@ public:
   bool
   send(const uint8_t* buf, size_t count);
 
-private:
+protected:
   void
   scan();
 
@@ -67,12 +64,11 @@ private:
   processScan();
 #endif
 
-private:
+protected:
   String m_ssid;
   int m_scanFreq;
   unsigned long m_nextScan;
   bool m_isScanning;
-  uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 };
 
 /**
@@ -84,6 +80,6 @@ private:
  *
  * Pseudo broadcast does not depend on ESP-NOW API to support broadcast.
  */
-extern EspNowMQListenerClass EspNowMQListener;
+extern EspNowMQBroadcastClass EspNowMQBroadcast;
 
-#endif // ESPNOW_MQ_LISTENER_H
+// ESPNOW_MQ_BROADCAST_H

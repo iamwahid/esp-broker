@@ -1,4 +1,4 @@
-#include "../base.h"
+#include "../../core/listener.h"
 
 namespace Modules {
 
@@ -87,7 +87,7 @@ class SwitchSub: public Listener {
       // Serial.print(OUTPUT_PIN_2); Serial.print(" "); Serial.println(VAL2);
     }; 
 
-    private: 
+    protected: 
       long VAL1 = 0;
       long VAL2 = 0;
 }; // end SwitchSub

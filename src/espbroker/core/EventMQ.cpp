@@ -22,7 +22,7 @@ MessageObject rxMsg;
 
 // LISTENER
 bool EventBrokerObject::hasListener(uint8_t * mac) {
-  std::map<String, std::shared_ptr<EspNowMQPeerInfo>>::iterator lsiter = listenerMap.find(macStr(mac));
+  std::map<String, std::shared_ptr<WifiNowPeer>>::iterator lsiter = listenerMap.find(macStr(mac));
   if (lsiter != listenerMap.end()) {
     DEBUG_PRINT("listener " + macStr(mac) + " exist\n");
     // if (lsiter->second.listenOn == event_name) {
@@ -33,13 +33,13 @@ bool EventBrokerObject::hasListener(uint8_t * mac) {
   return false;
 }
 
-bool EventBrokerObject::addListener(EspNowMQPeerInfo &listener, ListenerRole role) {
+bool EventBrokerObject::addListener(WifiNowPeer &listener, ListenerRole role) {
   // if (listener.listenOn != event_name) return false;
   // if (listener.channel == 0xFF) return false;
   listener.role = role;
   listener.status = ListenerStatus::ONLINE;
 
-  listenerMap.emplace(macStr(listener.mac), std::make_shared<EspNowMQPeerInfo>(listener));
+  listenerMap.emplace(macStr(listener.mac), std::make_shared<WifiNowPeer>(listener));
   listenerCount = listenerMap.size();
 
   if (listener.role == ListenerRole::PUB) {
@@ -68,30 +68,49 @@ bool EventBrokerObject::removeListener(uint8_t * mac) {
   return true;
 }
 
-bool EventBrokerObject::addPublisher(EspNowMQPeerInfo &listener) {
+bool EventBrokerObject::addPublisher(WifiNowPeer &listener) {
   return addListener(listener, ListenerRole::PUB);
 }
 
-bool EventBrokerObject::addSubscriber(EspNowMQPeerInfo &listener) {
+bool EventBrokerObject::addSubscriber(WifiNowPeer &listener) {
   return addListener(listener, ListenerRole::SUB);
 }
 
-EspNowMQPeerInfo &EventBrokerObject::getListener(uint8_t * mac) {
+WifiNowPeer &EventBrokerObject::getListener(uint8_t * mac) {
   return *listenerMap.at(macStr(mac));
 };
 
-bool EventBrokerObject::isEqual(EspNowMQPeerInfo &peer) {
+bool EventBrokerObject::isEqual(WifiNowPeer &peer) {
   return EspNowMQ.equals(rx_Msg.src, peer.mac, 6);
 }
 
 
-void EventBrokerObject::process(const uint8_t* data, uint8_t size) {
+void EventBrokerObject::sink(const uint8_t* data, uint8_t size) {
   memcpy(&rx_Msg, data, sizeof(rx_Msg));
   // store from publisher
   updateData(rx_Msg.src, rx_Msg.data, false);
   preProcess();
-  run();
+  // run();
 };
+
+void EventBrokerObject::trigger() {
+  run();
+}
+
+void EventBrokerObject::trigger(uint8_t * mac) {
+  updateData(mac, rx_Msg.data);    
+    
+  if ( postProcess(getListener(mac), rx_Msg) && getListener(mac).status != ListenerStatus::OFFLINE ) {
+    getListener(mac).status = ListenerStatus::BUSY;
+    if (EspNowMQ.send(mac, (uint8_t *)&result, sizeof(result))) {
+      DEBUG_PRINT("Send Success\n");
+      DEBUG_PRINT(result.data.name + "\n");
+    } else {
+      DEBUG_PRINT("Send Failed\n");
+    }
+  }
+}
+
 
 bool EventBrokerObject::updateData(uint8_t * mac, DataObject &data, bool setResult) {
   if (hasListener(mac)) {
@@ -284,7 +303,10 @@ void EspNowMQClass::recvHandler(const uint8_t *addr, const uint8_t *data, uint8_
 
     std::map<String, std::shared_ptr<EventObject>>::iterator eventitr = eventMap.find(rxMsg.m_event_name);
     if (eventitr != eventMap.end()) {
-      if (eventitr->second->isEnabled()) eventitr->second->process(data, size);
+      if (eventitr->second->isEnabled()) {
+        eventitr->second->sink(data, size);
+        eventitr->second->trigger();
+      }
     }
 	} else {
 		EspNowMQ.ignored++;

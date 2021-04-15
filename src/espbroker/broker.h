@@ -1,10 +1,11 @@
-#ifndef _EVENT_BROKER_H_
-#define _EVENT_BROKER_H_
+#pragma once
 
 #include <Ticker.h>
-#include "system/EventMQ.h"
+#include "core/EventMQ.h"
 #include "config.h"
-#include "event.h"
+//EVENTS
+#include "./events/blink.h"
+#include "./events/switch.h"
 
 
 TaskHandle_t taskBroker;
@@ -111,11 +112,6 @@ namespace Broker {
   }
 
   void begin() {
-    // WiFi.persistent(false);
-    // WiFi.mode(WIFI_AP_STA);
-    // WiFi.softAP("ESPNOW", nullptr, 3);
-    // WiFi.softAPdisconnect(false);
-    
     if (CORE0) {
       xTaskCreatePinnedToCore(
           vTaskBroker,   /* Task function. */
@@ -145,4 +141,3 @@ namespace Broker {
   }
 };
 
-#endif

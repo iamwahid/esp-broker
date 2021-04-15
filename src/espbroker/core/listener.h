@@ -1,9 +1,8 @@
-#ifndef _LISTENER_BASE_H_
-#define _LISTENER_BASE_H_
+#pragma once
 
-#include "../system/EventMQ.h"
-#include "../system/helpers.h"
-#include "../system/defines.h"
+#include "../core/EventMQ.h"
+#include "../core/helpers.h"
+#include "../core/defines.h"
 #include <Ticker.h>
 #include <pins_arduino.h>
 #include "../config.h"
@@ -27,12 +26,7 @@ class Listener {
   }
 
   void begin() {
-    // WiFi.persistent(false);
-    // WiFi.mode(WIFI_STA);
-    // WiFi.softAP("ESPNOW", nullptr, 3);
-    // WiFi.softAPdisconnect(false);
-    // WiFi.disconnect();
-    bool ok = EspNowMQ.begin(NET_ROLE::LISTENER, "mbayar0");
+    bool ok = EspNowMQ.begin(NET_ROLE::LISTENER);
     if (!ok) {
       Serial.println("failed");
       ESP.restart();
@@ -55,4 +49,3 @@ class Listener {
 }
 
 
-#endif

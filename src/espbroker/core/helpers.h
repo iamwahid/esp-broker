@@ -1,5 +1,4 @@
-#ifndef _HELPERS_H_
-#define _HELPERS_H_
+#pragma once
 
 #include "defines.h"
 
@@ -112,4 +111,4 @@ PIN_TYPE getPinType(uint8_t pin);
 //   usedPin.emplace(PIN_TYPE::U_OUT_PIN_2, 100);
 // }
 
-#endif
+int32_t getWiFiChannel(const char *ssid);

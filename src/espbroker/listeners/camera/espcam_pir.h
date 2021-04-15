@@ -26,7 +26,7 @@
 #include <SPIFFS.h>
 #include <FS.h>
 
-#include "../base.h"
+#include "../../core/listener.h"
 
 namespace Modules {
 
@@ -50,7 +50,7 @@ class ESPCamPIRCombo: public Listener {
 
   ESPCamPIRCombo(): Listener(ListenerType::EXTENDED) {}
 
-  private:
+  protected:
   String incomingByte;
   unsigned long currentTime;
   unsigned long prevTime = 10000;

@@ -1,4 +1,4 @@
-#include "../system/EventMQ.h"
+#include "../core/EventMQ.h"
 
 namespace Events {
 
@@ -19,7 +19,7 @@ struct BlinkEvent: EventBrokerObject {
     repeat(rx_Msg.data.toInt());
   }
 
-  bool postProcess(EspNowMQPeerInfo &peer, MessageObject &msg) override {
+  bool postProcess(WifiNowPeer &peer, MessageObject &msg) override {
     val = !val;
     memcpy(&result, &msg, sizeof(result));
     result.data.setFloat(val);

@@ -1,5 +1,4 @@
-#ifndef EVENT_MQ_H
-#define EVENT_MQ_H
+#pragma once
 
 #include "defines.h"
 #include "objects.h"
@@ -226,7 +225,7 @@ struct EventObject {
   
   bool enabled = true;
 
-  EspNowMQPeerInfo plain;
+  WifiNowPeer plain;
 
   EventObject() {};
   EventObject(String name): event_name(name) {};
@@ -235,11 +234,15 @@ struct EventObject {
 
 	virtual bool isEnabled() { return enabled; }
 
+  virtual void trigger() { }
+
+  virtual void trigger(uint8_t * mac) { }
+
   virtual bool hasListener(uint8_t * mac) {return false;};
-  virtual bool addListener(EspNowMQPeerInfo &listener, ListenerRole role) {return false;};
+  virtual bool addListener(WifiNowPeer &listener, ListenerRole role) {return false;};
   virtual bool addListener(int pos, ListenerRole role) {return false;};
   virtual bool removeListener(uint8_t * mac) {return false;};
-  virtual EspNowMQPeerInfo &getListener(uint8_t * mac) {
+  virtual WifiNowPeer &getListener(uint8_t * mac) {
     return plain;
   };
 
@@ -249,7 +252,7 @@ struct EventObject {
 
   virtual void addSerial(std::shared_ptr<LogicObject> logicObj) { }
 
-  virtual void process(const uint8_t* data, uint8_t size) {
+  virtual void sink(const uint8_t* data, uint8_t size) {
     memcpy(&rx_Msg, data, sizeof(rx_Msg));
     run();
   };
@@ -265,7 +268,7 @@ struct EventObject {
 };
 
 struct EventBrokerObject : EventObject {
-  std::map<String, std::shared_ptr<EspNowMQPeerInfo>> listenerMap;
+  std::map<String, std::shared_ptr<WifiNowPeer>> listenerMap;
 
   std::set<String> pubSet = {};
   std::set<String> subSet = {};
@@ -285,16 +288,16 @@ struct EventBrokerObject : EventObject {
   virtual ~EventBrokerObject() {};
 
   bool hasListener(uint8_t * mac) override;
-  bool addListener(EspNowMQPeerInfo &listener, ListenerRole role) override;
+  bool addListener(WifiNowPeer &listener, ListenerRole role) override;
   bool addListener(int pos, ListenerRole role) override;
-  bool addPublisher(EspNowMQPeerInfo &listener);
-  bool addSubscriber(EspNowMQPeerInfo &listener);
+  bool addPublisher(WifiNowPeer &listener);
+  bool addSubscriber(WifiNowPeer &listener);
   bool removeListener(uint8_t * mac) override;
-  EspNowMQPeerInfo &getListener(uint8_t * mac) override;
+  WifiNowPeer &getListener(uint8_t * mac) override;
 
   bool updateData(uint8_t * mac, DataObject &data, bool setResult = true);
 
-  bool isEqual(EspNowMQPeerInfo &peer);
+  bool isEqual(WifiNowPeer &peer);
 
   virtual bool logicalResult() {
     return logicals.compute();
@@ -310,14 +313,16 @@ struct EventBrokerObject : EventObject {
 
   virtual void preProcess() { };
 
-  virtual bool postProcess(EspNowMQPeerInfo &peer, MessageObject &msg) {
+  virtual bool postProcess(WifiNowPeer &peer, MessageObject &msg) {
 		return true;
 	}
 
 
 	virtual bool isEnabled() { return enabled; }
 
-  void process(const uint8_t* data, uint8_t size) override;
+  void sink(const uint8_t* data, uint8_t size) override;
+  void trigger() override;
+  void trigger(uint8_t * mac) override;
   void run() override;
   
   void repeat(uint32_t time = 1000);
@@ -328,11 +333,10 @@ struct EventBrokerObject : EventObject {
 
   void retoggle(uint32_t time = 1000);
 
-  private:
+  protected:
   static void sRun(EventBrokerObject * evObj);
 };
 
 extern std::map<String, std::shared_ptr<EventObject>> eventMap;
 extern std::map<String, esp_rc_event_t> eventRCMap;
 
-#endif

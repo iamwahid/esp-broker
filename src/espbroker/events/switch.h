@@ -1,4 +1,4 @@
-#include "../system/EventMQ.h"
+#include "../core/EventMQ.h"
 
 namespace Events {
 
@@ -6,7 +6,7 @@ struct SwitchEvent: EventBrokerObject {
   public:
   SwitchEvent(): EventBrokerObject() {}
 
-  bool postProcess(EspNowMQPeerInfo &peer, MessageObject &msg) override {
+  bool postProcess(WifiNowPeer &peer, MessageObject &msg) override {
     memcpy(&result, &msg, sizeof(msg));
     Serial.println(result.data.name);
     if (EspNowMQ.equals(result.src, peer.mac, 6)) return false;

@@ -1,7 +1,8 @@
 #include "EspNowMQ.h"
+#include "helpers.h"
+#include "objects.h"
 #include <string.h>
 #include <map>
-#include "objects.h"
 
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <c_types.h>
@@ -22,17 +23,6 @@ MessageObject txMsg;
 
 // ESPNOWMQ
 EspNowMQClass::EspNowMQClass() = default;
-
-int32_t getWiFiChannel(const char *ssid) {
-  if (int32_t n = WiFi.scanNetworks()) {
-      for (uint8_t i=0; i<n; i++) {
-          if (!strcmp(ssid, WiFi.SSID(i).c_str())) {
-              return WiFi.channel(i);
-          }
-      }
-  }
-  return 0;
-}
 
 void EspNowMQClass::setMaster(uint8_t *addr) {
 	if (esp_now_is_peer_exist(master))
@@ -100,7 +90,7 @@ bool EspNowMQClass::equals(const uint8_t *a, const uint8_t *b, uint8_t size, uin
 	return true;
 }
 
-int EspNowMQClass::listPeers(EspNowMQPeerInfo* peers, int maxPeers) const
+int EspNowMQClass::listPeers(WifiNowPeer* peers, int maxPeers) const
 {
 	if (!m_ready) {
     return 0;
@@ -136,7 +126,7 @@ bool EspNowMQClass::refreshPeers() {
   return false;
 }
 
-void EspNowMQClass::updatePeer(EspNowMQPeerInfo * peers, const uint8_t mac[6], String listenOn) const
+void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], String listenOn) const
 {
   if (m_ready && this->hasPeer(mac)) {
     for (int i = 0; i < listenerCount; i++)
@@ -150,7 +140,7 @@ void EspNowMQClass::updatePeer(EspNowMQPeerInfo * peers, const uint8_t mac[6], S
   }
 }
 		
-void EspNowMQClass::updatePeer(EspNowMQPeerInfo * peers, const uint8_t mac[6], ListenerType type) const
+void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], ListenerType type) const
 {
   if (m_ready && this->hasPeer(mac)) {
     for (int i = 0; i < listenerCount; i++)
@@ -252,14 +242,15 @@ void EspNowMQClass::end()
 bool EspNowMQClass::begin(uint8_t role, const char * SSID) {
 	end();
 
-  Dchannel = getWiFiChannel(SSID);
 
   if (role == NET_ROLE::BROKER) {
+    Dchannel = getWiFiChannel(SSID);
     WiFi.persistent(false);
     WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP("ESPNOW", nullptr, 3);
-    WiFi.softAPdisconnect(false);
+    WiFi.softAP("ESPNOW_MQ_NET", nullptr, 3);
+    // WiFi.softAPdisconnect(false); // for unassign AP name
   } else if (role == NET_ROLE::LISTENER) {
+    Dchannel = getWiFiChannel("ESPNOW_MQ_NET");
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
@@ -275,6 +266,9 @@ bool EspNowMQClass::begin(uint8_t role, const char * SSID) {
     esp_wifi_set_promiscuous(false);
 #endif
     // WiFi.printDiag(Serial); // Uncomment to verify channel change after
+  } 
+  else {
+
   }
   
 	m_ready = esp_now_init() == 0 &&

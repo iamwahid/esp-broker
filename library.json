@@ -1,17 +1,17 @@
 {
   "name": "espbroker",
   "keywords": "esp32, home-assistant, ir, ledc, mqtt, iot",
-  "description": "ESPHome - Reimagining DIY Home Automation.",
+  "description": "ESPBroker",
   "repository": {
     "type": "git",
-    "url": "https://github.com/esphome/espbroker.git"
+    "url": "https://github.com/iamwahid/espbroker.git"
   },
   "version": "1.13.0-dev",
   "authors": [
     {
-      "name": "Otto Winter",
-      "email": "contact@otto-winter.com",
-      "url": "https://otto-winter.com",
+      "name": "Wahid Niam",
+      "email": "iam.wahidn@gmail.com",
+      "url": "https://iamwahid.me",
       "maintainer": true
     }
   ],

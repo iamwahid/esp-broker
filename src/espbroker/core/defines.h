@@ -1,5 +1,5 @@
-#ifndef _DEFINES_H_
-#define _DEFINES_H_
+#pragma once
+
 #include <type_traits>
 
 #include <map>
@@ -121,5 +121,3 @@ extern unsigned int INPUT_PIN_2;
 extern unsigned int OUTPUT_PIN_1;
 extern unsigned int OUTPUT_PIN_2;
 extern unsigned int USED_PIN;
-
-#endif

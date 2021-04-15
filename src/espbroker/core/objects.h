@@ -1,5 +1,5 @@
-#ifndef _OBJECTS_H_
-#define _OBJECTS_H_
+#pragma once
+
 #include "defines.h"
 
 struct VarObject {
@@ -189,7 +189,7 @@ struct DataObject: VarObject {
 
 };
 
-struct EspNowMQPeerInfo { // versi 1 by 1 data + config
+struct WifiNowPeer { // versi 1 by 1 data + config
   uint8_t mac[6];
   uint8_t channel;
 	ListenerStatus status;
@@ -202,8 +202,8 @@ struct EspNowMQPeerInfo { // versi 1 by 1 data + config
 
 	//state on, of
 
-	EspNowMQPeerInfo() {}
-	EspNowMQPeerInfo(EspNowMQPeerInfo & peer) {
+	WifiNowPeer() {}
+	WifiNowPeer(WifiNowPeer & peer) {
 		memcpy(mac, peer.mac, 6);
 		channel = peer.channel;
 		status = peer.status;
@@ -255,4 +255,3 @@ struct esp_rc_event_t {
 	esp_rc_data_callback_t on_data_cb;
 };
 
-#endif

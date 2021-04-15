@@ -1,4 +1,4 @@
-#include "../base.h"
+#include "../../core/listener.h"
 
 namespace Modules {
 
@@ -66,7 +66,7 @@ class BlinkSub: public Listener {
       });
     }
 
-  private:
+  protected:
     int D_ledState = HIGH;
     Ticker D_blinkTimer;
     bool D_isBlinking = false;

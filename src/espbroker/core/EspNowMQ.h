@@ -1,5 +1,4 @@
-#ifndef ESPNOW_MQ_H
-#define ESPNOW_MQ_H
+#pragma once
 
 // #define MQ_DEBUG_ALL_MSG 1
 #define MQ_DEBUG_CONFIRMATION 1
@@ -29,7 +28,7 @@ class EventObject;
 class EspNowMQClass {
 	public:
 		const static int MAX_PEERS = 20;
-		EspNowMQPeerInfo peerListeners[MAX_PEERS];
+		WifiNowPeer peerListeners[MAX_PEERS];
 		int listenerCount = 0;
 		uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
@@ -41,7 +40,7 @@ class EspNowMQClass {
 		
 		bool equals(const uint8_t *a, const uint8_t *b, uint8_t size, uint8_t offset = 0);
 		
-		bool begin(uint8_t role = 0, const char * SSID = "");
+		bool begin(uint8_t role = 0, const char * SSID = "ESPNOW_MQ_NET");
 
 		void end();
 
@@ -51,7 +50,7 @@ class EspNowMQClass {
 		 * @param maxPeers buffer size.
 		 * @return total number of peers, @c std::min(retval,maxPeers) is written to @p peers .
 		 */
-		int listPeers(EspNowMQPeerInfo* peers, int maxPeers) const;
+		int listPeers(WifiNowPeer* peers, int maxPeers) const;
 
 		bool refreshPeers();
 
@@ -64,9 +63,9 @@ class EspNowMQClass {
 
 		int indexOf(const uint8_t mac[6]);
 
-		void updatePeer(EspNowMQPeerInfo * peers, const uint8_t mac[6], String listenOn) const;
+		void updatePeer(WifiNowPeer * peers, const uint8_t mac[6], String listenOn) const;
 		
-		void updatePeer(EspNowMQPeerInfo * peers, const uint8_t mac[6], ListenerType type) const;
+		void updatePeer(WifiNowPeer * peers, const uint8_t mac[6], ListenerType type) const;
 
 		/**
 		 * @brief Add a peer or change peer channel.
@@ -126,11 +125,11 @@ class EspNowMQClass {
 		}
 		
 
-	private:
+	protected:
 		static void recvHandler(const uint8_t *addr, const uint8_t *data, uint8_t size);
 		static void sendHandler(const uint8_t *addr, uint8_t err);
 		
-	private:
+	protected:
 		uint8_t buffer[250];
 		uint8_t events_num = 0;
 		uint32_t received;
@@ -153,4 +152,4 @@ class EspNowMQClass {
 /** @brief ESP-NOW API. */
 extern EspNowMQClass EspNowMQ;
 
-#endif	//ESPNOW_MQ_H
+//ESPNOW_MQ_H
