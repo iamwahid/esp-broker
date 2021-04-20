@@ -16,6 +16,8 @@ MessageObject tmp_Msg; // temp message to change on condition
 class Listener {
   public:
   ListenerType MODULE_TYPE;
+  String SubTo;
+  String PubTo;
   Listener() {};
   Listener(ListenerType MODULE_TYPE): MODULE_TYPE(MODULE_TYPE) {};
 
@@ -37,7 +39,7 @@ class Listener {
     pinMode(DEFAULT_BUTTON, INPUT_PULLUP);
     SET_PIN(MODULE_TYPE);
 
-    initListener();
+    this->initListener();
   }
 
   virtual void loop() {

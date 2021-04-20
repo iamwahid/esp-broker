@@ -22,8 +22,8 @@ MessageObject rxMsg;
 
 // LISTENER
 bool EventBrokerObject::hasListener(uint8_t * mac) {
-  std::map<String, std::shared_ptr<WifiNowPeer>>::iterator lsiter = listenerMap.find(macStr(mac));
-  if (lsiter != listenerMap.end()) {
+  std::map<String, std::shared_ptr<WifiNowPeer>>::iterator lsiter = this->listenerMap.find(macStr(mac));
+  if (lsiter != this->listenerMap.end()) {
     DEBUG_PRINT("listener " + macStr(mac) + " exist\n");
     // if (lsiter->second.listenOn == event_name) {
       return true;
@@ -39,138 +39,118 @@ bool EventBrokerObject::addListener(WifiNowPeer &listener, ListenerRole role) {
   listener.role = role;
   listener.status = ListenerStatus::ONLINE;
 
-  listenerMap.emplace(macStr(listener.mac), std::make_shared<WifiNowPeer>(listener));
-  listenerCount = listenerMap.size();
+  this->listenerMap.emplace(macStr(listener.mac), std::make_shared<WifiNowPeer>(listener));
+  this->listenerCount = this->listenerMap.size();
 
   if (listener.role == ListenerRole::PUB) {
      DEBUG_PRINT("new listener " + macStr(listener.mac) + " as Publisher\n");
-     pubSet.emplace(macStr(listener.mac));
+     this->pubSet.emplace(macStr(listener.mac));
   } else if (listener.role == ListenerRole::SUB) {
      DEBUG_PRINT("new listener " + macStr(listener.mac) +" as Subscriber\n");
-     subSet.emplace(macStr(listener.mac));
+     this->subSet.emplace(macStr(listener.mac));
   }
 
-  DEBUG_PRINT(String(listenerMap.size()) + " listener\n");
+  DEBUG_PRINT(String(this->listenerMap.size()) + " listener\n");
   return true;
 }
 
 bool EventBrokerObject::addListener(int pos, ListenerRole role) {
   if (pos<0) return false;
-  return addListener(EspNowMQ.peerListeners[pos], role);
+  return this->addListener(EspNowMQ.peerListeners[pos], role);
 }
 
 bool EventBrokerObject::removeListener(uint8_t * mac) {
-  if (getListener(mac).role == ListenerRole::PUB) pubSet.erase(macStr(mac));
-  else if (getListener(mac).role == ListenerRole::SUB) subSet.erase(macStr(mac));
+  if (this->getListener(mac).role == ListenerRole::PUB) this->pubSet.erase(macStr(mac));
+  else if (this->getListener(mac).role == ListenerRole::SUB) this->subSet.erase(macStr(mac));
 
-  listenerCount = listenerMap.erase(macStr(mac));
-  DEBUG_PRINT(listenerCount+" listener\n");
+  this->listenerCount = this->listenerMap.erase(macStr(mac));
+  DEBUG_PRINT(this->listenerCount+" listener\n");
   return true;
 }
 
 bool EventBrokerObject::addPublisher(WifiNowPeer &listener) {
-  return addListener(listener, ListenerRole::PUB);
+  return this->addListener(listener, ListenerRole::PUB);
 }
 
 bool EventBrokerObject::addSubscriber(WifiNowPeer &listener) {
-  return addListener(listener, ListenerRole::SUB);
+  return this->addListener(listener, ListenerRole::SUB);
 }
 
 WifiNowPeer &EventBrokerObject::getListener(uint8_t * mac) {
-  return *listenerMap.at(macStr(mac));
+  return *this->listenerMap.at(macStr(mac));
 };
 
 bool EventBrokerObject::isEqual(WifiNowPeer &peer) {
-  return EspNowMQ.equals(rx_Msg.src, peer.mac, 6);
+  return EspNowMQ.equals(this->rx_Msg.src, peer.mac, 6);
 }
 
-
-void EventBrokerObject::sink(const uint8_t* data, uint8_t size) {
-  memcpy(&rx_Msg, data, sizeof(rx_Msg));
-  // store from publisher
-  updateData(rx_Msg.src, rx_Msg.data, false);
-  preProcess();
-  // run();
+void EventBrokerObject::enqueue(const uint8_t* data, uint8_t size) {
+  memcpy(&this->rx_Msg, data, sizeof(this->rx_Msg));
+  this->updateData(this->rx_Msg.src, this->rx_Msg.data, false);
+  this->preProcess();
 };
 
-void EventBrokerObject::trigger() {
-  run();
+void EventBrokerObject::dispatch() {
+  this->run();
 }
-
-void EventBrokerObject::trigger(uint8_t * mac) {
-  updateData(mac, rx_Msg.data);    
-    
-  if ( postProcess(getListener(mac), rx_Msg) && getListener(mac).status != ListenerStatus::OFFLINE ) {
-    getListener(mac).status = ListenerStatus::BUSY;
-    if (EspNowMQ.send(mac, (uint8_t *)&result, sizeof(result))) {
-      DEBUG_PRINT("Send Success\n");
-      DEBUG_PRINT(result.data.name + "\n");
-    } else {
-      DEBUG_PRINT("Send Failed\n");
+// if listener data is list? match by data name, compute binding?
+void EventBrokerObject::dispatch(uint8_t * mac) {
+  if (this->hasListener(mac)) {
+    this->updateData(mac, this->rx_Msg.data); // update value before forwarded to subscriber
+      
+    if ( this->postProcess(this->getListener(mac), this->result) && getListener(mac).status != ListenerStatus::OFFLINE ) {
+      this->getListener(mac).status = ListenerStatus::BUSY;
+      if (EspNowMQ.send(mac, (uint8_t *)&this->result, sizeof(this->result))) {
+        DEBUG_PRINT("Send Success\n");
+        DEBUG_PRINT(this->result.data.name + "\n");
+      } else {
+        DEBUG_PRINT("Send Failed\n");
+      }
     }
   }
 }
 
-
-bool EventBrokerObject::updateData(uint8_t * mac, DataObject &data, bool setResult) {
-  if (hasListener(mac)) {
-    getListener(mac).data->name = data.name;
-    getListener(mac).data->value = data.value;
-    // getListener(mac).configs.minVal.setValue<long>(100);
-    // getListener(mac).configs.maxVal.setValue<long>(1000);
-  }
-  if (setResult) {
-    result.data.name = data.name;
-    // result.data.value = data.value;
-    memcpy(result.dst, mac, 6);  
-#if defined(ARDUINO_ARCH_ESP8266)
-    wifi_get_macaddr(SOFTAP_IF, result.src); // mode
-#elif defined(ARDUINO_ARCH_ESP32)
-    esp_wifi_get_mac(WIFI_IF_AP, result.src);
-#endif
-
-    if (logicalResult()) {
-      if (getListener(mac).type == ListenerType::OUTPUT_BINARY) {
-        result.data.setBool(getListener(mac).data->configs.onVal.getValue<bool>());
-      } else if (getListener(mac).type == ListenerType::OUTPUT_ANALOG) {
-        result.data.setFloat(getListener(mac).configs.onVal.toFloat()); // TODO
-      }
+bool EventBrokerObject::updateData(uint8_t * mac, DataObject &data, bool compute) {
+  if (this->hasListener(mac)) {
+    this->getListener(mac).data->name = data.name;
+    this->getListener(mac).data->value = data.value;
+    if (compute) {
+      this->computeResult(mac, data);
     } else {
-      if (getListener(mac).type == ListenerType::OUTPUT_BINARY) {
-        result.data.setBool(getListener(mac).configs.offVal.getValue<bool>());
-      } else if (getListener(mac).type == ListenerType::OUTPUT_ANALOG) {
-        result.data.setFloat(getListener(mac).configs.offVal.toFloat());
-      }
+      this->forward(mac, data);
     }
   }
   return true;
 }
 
-void EventBrokerObject::sRun(EventBrokerObject * evObj) {
-    evObj->run();
+void EventBrokerObject::computeResult(uint8_t * mac, DataObject &data) {
+  this->result.data.name = data.name;
+  memcpy(this->result.dst, mac, 6);  
+  #if defined(ARDUINO_ARCH_ESP8266)
+  wifi_get_macaddr(STATION_IF, this->result.src); // mode
+  #elif defined(ARDUINO_ARCH_ESP32)
+  esp_wifi_get_mac(WIFI_IF_AP, this->result.src);
+  #endif
+
+  // TODO
+  // if single ~pub~ sub? direct control
+  if (this->bindings.compute()) {
+    this->result.data.setString(this->getListener(mac).data->configs.onVal.toString());
+  } else {
+    this->result.data.setString(this->getListener(mac).data->configs.offVal.toString());
+  }
 }
 
-void EventBrokerObject::repeat(uint32_t time) {
-  tickr.attach_ms(time, &EventBrokerObject::sRun, this);
-  repeating = true;
-  runType = RUN_TYPE::PERIODIC;
-}
-
-void EventBrokerObject::once(uint32_t time) {
-  tickr.once_ms(time, &EventBrokerObject::sRun, this);
-  runType = RUN_TYPE::ONCE;
-}
-
-void EventBrokerObject::pause() {
-  tickr.detach();
-  repeating = false;
-}
-
-void EventBrokerObject::retoggle(uint32_t time) {
-  if (repeating)
-    pause();
-  else
-    repeat(time);
+void EventBrokerObject::forward(uint8_t * mac, DataObject &data) {
+  this->result.data.name = data.name;
+  this->result.data.dataType = data.dataType;
+  this->result.data.value = data.value;
+  memcpy(this->result.dst, mac, 6);  
+  #if defined(ARDUINO_ARCH_ESP8266)
+  wifi_get_macaddr(STATION_IF, this->result.src); // mode
+  #elif defined(ARDUINO_ARCH_ESP32)
+  esp_wifi_get_mac(WIFI_IF_AP, this->result.src);
+  #endif
 }
 
 void EventBrokerObject::run() {
@@ -182,26 +162,9 @@ void EventBrokerObject::run() {
 
   uint8_t Taddr[6];
 
-  // for (auto mac : pubSet)
-  // {
-  //   macHex(Taddr, (char *)mac.c_str());
-  //   updateData(Taddr, rx_Msg.data);
-  // }
-
-  for (auto mac : subSet) {    
+  for (auto mac : this->subSet) {
     macHex(Taddr, (char *)mac.c_str());
-    updateData(Taddr, rx_Msg.data); // update value before forwarded to subscriber
-    
-    
-    if ( postProcess(getListener(Taddr), rx_Msg) && getListener(Taddr).status != ListenerStatus::OFFLINE ) {
-      getListener(Taddr).status = ListenerStatus::BUSY;
-      if (EspNowMQ.send(Taddr, (uint8_t *)&result, sizeof(result))) {
-        DEBUG_PRINT("Send Success\n");
-        DEBUG_PRINT(result.data.name + "\n");
-      } else {
-        DEBUG_PRINT("Send Failed\n");
-      }
-    }
+    this->dispatch(Taddr);
   }
 
 
@@ -223,6 +186,33 @@ void EventBrokerObject::run() {
   //     }
   //   }
   // }
+}
+
+void EventBrokerObject::callRun(EventBrokerObject * evObj) {
+    evObj->run();
+}
+
+void EventBrokerObject::repeatT(uint32_t time) {
+  this->tickr.attach_ms(time, &EventBrokerObject::callRun, this);
+  this->repeating = true;
+  this->runType = RUN_TYPE::PERIODIC;
+}
+
+void EventBrokerObject::onceT(uint32_t time) {
+  this->tickr.once_ms(time, &EventBrokerObject::callRun, this);
+  this->runType = RUN_TYPE::ONCE;
+}
+
+void EventBrokerObject::pauseT() {
+  this->tickr.detach();
+  this->repeating = false;
+}
+
+void EventBrokerObject::toggleT(uint32_t time) {
+  if (this->repeating)
+    this->pauseT();
+  else
+    this->repeatT(time);
 }
 
 void EspNowMQClass::on(String event_name, esp_rc_data_callback_t data_callback, esp_rc_callback_t callback) {
@@ -304,8 +294,8 @@ void EspNowMQClass::recvHandler(const uint8_t *addr, const uint8_t *data, uint8_
     std::map<String, std::shared_ptr<EventObject>>::iterator eventitr = eventMap.find(rxMsg.m_event_name);
     if (eventitr != eventMap.end()) {
       if (eventitr->second->isEnabled()) {
-        eventitr->second->sink(data, size);
-        eventitr->second->trigger();
+        eventitr->second->enqueue(data, size);
+        eventitr->second->dispatch();
       }
     }
 	} else {

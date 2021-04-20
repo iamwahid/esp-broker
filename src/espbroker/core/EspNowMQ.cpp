@@ -25,34 +25,34 @@ MessageObject txMsg;
 EspNowMQClass::EspNowMQClass() = default;
 
 void EspNowMQClass::setMaster(uint8_t *addr) {
-	if (esp_now_is_peer_exist(master))
-		esp_now_del_peer(master);
-	master = addr;
+	if (esp_now_is_peer_exist(this->master))
+		esp_now_del_peer(this->master);
+	this->master = addr;
 
-  EspNowMQ.addPeer(master);
+  this->addPeer(this->master);
 }
 
 bool EspNowMQClass::send(const uint8_t mac[6], const uint8_t* buf, size_t count)
 {
-  if (!m_ready || count > ESPNOW_MQ_MAXMSGLEN || count == 0) {
+  if (!this->m_ready || count > ESPNOW_MQ_MAXMSGLEN || count == 0) {
     return false;
   }
 
-  sending = true;
-  sendTime = micros();
+  this->sending = true;
+  this->sendTime = micros();
 
   DEBUG_PRINT("sending...\n");
-  EspNowMQ.m_txRes = EspNowMQSendStatus::NONE;
+  this->m_txRes = EspNowMQSendStatus::NONE;
   return esp_now_send(const_cast<uint8_t*>(mac), const_cast<uint8_t*>(buf),
                       static_cast<int>(count)) == 0;
 }
 
 bool EspNowMQClass::send(const String type, const uint8_t dst[6], const String name, void *value) {
-  if (m_ready) {
+  if (this->m_ready) {
     txMsg.m_event_name = type;
     memcpy(txMsg.dst, dst, 6);
 #if defined(ARDUINO_ARCH_ESP8266)
-    wifi_get_macaddr(SOFTAP_IF, txMsg.src); // mode
+    wifi_get_macaddr(STATION_IF, txMsg.src); // mode
 #elif defined(ARDUINO_ARCH_ESP32)
     esp_wifi_get_mac(WIFI_IF_AP, txMsg.src);
 #endif
@@ -65,8 +65,8 @@ bool EspNowMQClass::send(const String type, const uint8_t dst[6], const String n
       return false;
     }
 
-    sending = true;
-    sendTime = micros();
+    this->sending = true;
+    this->sendTime = micros();
 
     return esp_now_send(const_cast<uint8_t*>(dst), (uint8_t *) &txMsg, sizeof(txMsg)) == 0;
   }
@@ -75,7 +75,7 @@ bool EspNowMQClass::send(const String type, const uint8_t dst[6], const String n
 }
 
 void EspNowMQClass::wait() {
-	while (sending) yield();  // Wait while sending
+	while (this->sending) yield();  // Wait while sending
 }
 
 void EspNowMQClass::delayMs(uint32_t time) {
@@ -92,7 +92,7 @@ bool EspNowMQClass::equals(const uint8_t *a, const uint8_t *b, uint8_t size, uin
 
 int EspNowMQClass::listPeers(WifiNowPeer* peers, int maxPeers) const
 {
-	if (!m_ready) {
+	if (!this->m_ready) {
     return 0;
   }
   int n = 0;
@@ -119,19 +119,19 @@ int EspNowMQClass::listPeers(WifiNowPeer* peers, int maxPeers) const
 }
 
 bool EspNowMQClass::refreshPeers() {
-  if (m_ready) {
-    EspNowMQ.listenerCount = std::min(EspNowMQ.listPeers(EspNowMQ.peerListeners, EspNowMQ.MAX_PEERS), EspNowMQ.MAX_PEERS);
-    return EspNowMQ.listenerCount > 0;
+  if (this->m_ready) {
+    this->listenerCount = std::min(this->listPeers(this->peerListeners, this->MAX_PEERS), this->MAX_PEERS);
+    return this->listenerCount > 0;
   }
   return false;
 }
 
-void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], String listenOn) const
+void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], String listenOn)
 {
-  if (m_ready && this->hasPeer(mac)) {
-    for (int i = 0; i < listenerCount; i++)
+  if (this->m_ready && this->hasPeer(mac)) {
+    for (int i = 0; i < this->listenerCount; i++)
     {
-       if (EspNowMQ.equals(peers[i].mac, mac, 6)) {
+       if (this->equals(peers[i].mac, mac, 6)) {
          peers[i].listenOn = listenOn;
          DEBUG_PRINT(listenOn+"\n");
          break;
@@ -140,12 +140,12 @@ void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], String
   }
 }
 		
-void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], ListenerType type) const
+void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], ListenerType type)
 {
-  if (m_ready && this->hasPeer(mac)) {
-    for (int i = 0; i < listenerCount; i++)
+  if (this->m_ready && this->hasPeer(mac)) {
+    for (int i = 0; i < this->listenerCount; i++)
     {
-       if (EspNowMQ.equals(peers[i].mac, mac, 6)) {
+       if (this->equals(peers[i].mac, mac, 6)) {
          peers[i].type = type;
          break;
        }
@@ -156,7 +156,7 @@ void EspNowMQClass::updatePeer(WifiNowPeer * peers, const uint8_t mac[6], Listen
 #if defined(ARDUINO_ARCH_ESP8266)
 bool EspNowMQClass::addPeer(const uint8_t mac[6], int channel, const uint8_t key[ESPNOW_MQ_KEYLEN])
 {
-  if (!m_ready) {
+  if (!this->m_ready) {
     return false;
   }
 
@@ -173,7 +173,7 @@ bool EspNowMQClass::addPeer(const uint8_t mac[6], int channel, const uint8_t key
 bool EspNowMQClass::addPeer(const uint8_t mac[6], int channel, const uint8_t key[ESPNOW_MQ_KEYLEN],
                          int netif)
 {
-  if (!m_ready) {
+  if (!this->m_ready) {
     return false;
   }
 
@@ -186,8 +186,8 @@ bool EspNowMQClass::addPeer(const uint8_t mac[6], int channel, const uint8_t key
   }
   memset(&pi, 0, sizeof(pi));
   memcpy(pi.peer_addr, mac, ESP_NOW_ETH_ALEN);
-  if (Dchannel) 
-    pi.channel = Dchannel;
+  if (this->Dchannel) 
+    pi.channel = this->Dchannel;
   else
     pi.channel = static_cast<uint8_t>(channel);
 
@@ -203,15 +203,15 @@ bool EspNowMQClass::addPeer(const uint8_t mac[6], int channel, const uint8_t key
 
 bool EspNowMQClass::hasPeer(const uint8_t mac[6]) const
 {
-  return m_ready && esp_now_is_peer_exist(const_cast<uint8_t*>(mac));
+  return this->m_ready && esp_now_is_peer_exist(const_cast<uint8_t*>(mac));
 }
 
 int EspNowMQClass::indexOf(const uint8_t mac[6])
 {
   if (this->hasPeer(mac)) {
-    for (int i = 0; i < listenerCount; i++)
+    for (int i = 0; i < this->listenerCount; i++)
     {
-       if (EspNowMQ.equals(peerListeners[i].mac, mac, 6)) {
+       if (this->equals(this->peerListeners[i].mac, mac, 6)) {
         return i;
        }
     }
@@ -221,36 +221,36 @@ int EspNowMQClass::indexOf(const uint8_t mac[6])
 
 bool EspNowMQClass::removePeer(const uint8_t mac[6])
 {
-  return m_ready && esp_now_del_peer(const_cast<uint8_t*>(mac)) == 0;
+  return this->m_ready && esp_now_del_peer(const_cast<uint8_t*>(mac)) == 0;
 }
 
 void EspNowMQClass::onReceive(esp_rx_cb_t cb, void* arg)
 {
-  m_rxCb = cb;
-  m_rxArg = arg;
+  this->m_rxCb = cb;
+  this->m_rxArg = arg;
 }
 
 void EspNowMQClass::end()
 {
-  if (!m_ready) {
+  if (!this->m_ready) {
     return;
   }
   esp_now_deinit();
-  m_ready = false;
+  this->m_ready = false;
 }
 
 bool EspNowMQClass::begin(uint8_t role, const char * SSID) {
-	end();
+	this->end();
 
 
   if (role == NET_ROLE::BROKER) {
-    Dchannel = getWiFiChannel(SSID);
+    this->Dchannel = getWiFiChannel(SSID);
     WiFi.persistent(false);
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAP("ESPNOW_MQ_NET", nullptr, 3);
     // WiFi.softAPdisconnect(false); // for unassign AP name
   } else if (role == NET_ROLE::LISTENER) {
-    Dchannel = getWiFiChannel("ESPNOW_MQ_NET");
+    this->Dchannel = getWiFiChannel("ESPNOW_MQ_NET");
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
@@ -258,11 +258,11 @@ bool EspNowMQClass::begin(uint8_t role, const char * SSID) {
     // WiFi.printDiag(Serial); // Uncomment to verify channel number before
 #if defined(ARDUINO_ARCH_ESP8266)
     wifi_promiscuous_enable(1);
-    wifi_set_channel(Dchannel);
+    wifi_set_channel(this->Dchannel);
     wifi_promiscuous_enable(0);
 #elif defined(ARDUINO_ARCH_ESP32)
     esp_wifi_set_promiscuous(true);
-    esp_wifi_set_channel(Dchannel, WIFI_SECOND_CHAN_NONE);
+    esp_wifi_set_channel(this->Dchannel, WIFI_SECOND_CHAN_NONE);
     esp_wifi_set_promiscuous(false);
 #endif
     // WiFi.printDiag(Serial); // Uncomment to verify channel change after
@@ -271,7 +271,7 @@ bool EspNowMQClass::begin(uint8_t role, const char * SSID) {
 
   }
   
-	m_ready = esp_now_init() == 0 &&
+	this->m_ready = esp_now_init() == 0 &&
 #if defined(ARDUINO_ARCH_ESP8266)
     esp_now_set_self_role(ESP_NOW_ROLE_COMBO) == 0 &&
 #endif
@@ -280,9 +280,9 @@ bool EspNowMQClass::begin(uint8_t role, const char * SSID) {
   ;
 
 #if defined(ARDUINO_ARCH_ESP8266)
-    wifi_get_macaddr(STATION_IF, EspNowMQ.mac); // mode
+    wifi_get_macaddr(STATION_IF, this->mac); // mode
 #elif defined(ARDUINO_ARCH_ESP32)
-    esp_wifi_get_mac(WIFI_IF_AP, EspNowMQ.mac);
+    esp_wifi_get_mac(WIFI_IF_AP, this->mac);
 #endif
 	return m_ready;
 }

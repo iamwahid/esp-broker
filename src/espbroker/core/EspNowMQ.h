@@ -63,9 +63,9 @@ class EspNowMQClass {
 
 		int indexOf(const uint8_t mac[6]);
 
-		void updatePeer(WifiNowPeer * peers, const uint8_t mac[6], String listenOn) const;
+		void updatePeer(WifiNowPeer * peers, const uint8_t mac[6], String listenOn);
 		
-		void updatePeer(WifiNowPeer * peers, const uint8_t mac[6], ListenerType type) const;
+		void updatePeer(WifiNowPeer * peers, const uint8_t mac[6], ListenerType type);
 
 		/**
 		 * @brief Add a peer or change peer channel.
