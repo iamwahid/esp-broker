@@ -6,7 +6,7 @@
 #error "This library supports ESP8266 and ESP32 only."
 #endif
 
-#include "EventMQ.h"
+#include "event_mq.h"
 #include "objects.h"
 #include "helpers.h"
 #include <map>
@@ -14,6 +14,8 @@
 #include <WString.h>
 #include <cstddef>
 #include <cstdint>
+
+using namespace espbroker;
 
 std::map<String, std::shared_ptr<EventObject>> eventMap;
 std::map<String, esp_rc_event_t> eventRCMap;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Ticker.h>
-#include "core/EventMQ.h"
+#include "core/event_mq.h"
 #include "config.h"
 //EVENTS
 #include "./events/blink.h"

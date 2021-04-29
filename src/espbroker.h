@@ -1,6 +1,9 @@
 #pragma once
 
 #include "espbroker/config.h"
+#include "espbroker/core/filesystem.h"
+
+#include "espbroker/core/preferences.h"
 
 #if defined(ESPBROKER_AS_BROKER)
 #include "espbroker/broker.h"
@@ -18,4 +21,4 @@
 #error "Define role as BROKER or LISTENER"
 #endif
 
-
+using namespace espbroker;

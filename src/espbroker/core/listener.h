@@ -1,12 +1,14 @@
 #pragma once
 
-#include "../core/EventMQ.h"
+#include "../core/event_mq.h"
 #include "../core/helpers.h"
 #include "../core/defines.h"
 #include <Ticker.h>
 #include <pins_arduino.h>
 #include "../config.h"
 // #include <Preferences.h>
+
+using namespace espbroker;
 
 namespace Modules {
 

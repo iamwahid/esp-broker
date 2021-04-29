@@ -2,7 +2,7 @@
 
 #include "defines.h"
 #include "objects.h"
-#include "EspNowMQ.h"
+#include "espnow_mq.h"
 #include <Ticker.h>
 #include <set>
 #include <vector>

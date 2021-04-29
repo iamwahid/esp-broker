@@ -1,4 +1,4 @@
-#include "EspNowMQ.h"
+#include "espnow_mq.h"
 #include "helpers.h"
 #include "objects.h"
 #include <string.h>
@@ -13,6 +13,8 @@
 #else
 #error "This library supports ESP8266 and ESP32 only."
 #endif
+
+using namespace espbroker;
 
 esp_rc_event_t rc_events[250];
 
