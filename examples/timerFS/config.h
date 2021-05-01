@@ -11,6 +11,8 @@ using namespace espbroker;
 
 class MyPreference {
   private:
+  const char * MASTER_KEY = "12348765";
+
   long_char_t device_id;
   long_char_t ap_name;
   long_char_t ap_pass;
@@ -107,6 +109,10 @@ class MyPreference {
   }
 
   public:
+  String getMasterKey() {
+    return MASTER_KEY;
+  }
+
   String getAPName() {
     return "FEEDR-" + this->getDeviceID();
   }
@@ -188,7 +194,7 @@ class MyPreference {
   }
 
   bool setSecretKey(String value_) {
-    if (value_.length() < 6) return false; 
+    if (!value_.equals("") && value_.length() < 6) return false; 
     value_.toCharArray(secret_key, sizeof(long_char_t));
     return save<long_char_t>(secret_key_, secret_key);
   }

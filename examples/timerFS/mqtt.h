@@ -3,6 +3,9 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <functional>
+
+#include "config.h"
 
 // #include "config.h"
 
@@ -18,12 +21,27 @@ class MQTTC {
   char msg[50];
   int value = 0;
   bool callback_setted = false;
+  String _deviceid;
+
+  std::function<void(void)> _onConnected = nullptr;
+  std::function<void(void)> _onReconnect = nullptr;
+  std::function<void(void)> _onDisconnected = nullptr;
 
   bool begun = false;
 
   void setCallback(MQTT_CALLBACK_SIGNATURE) {
     callback_setted = true;
     client.setCallback(callback);
+  }
+
+  void onConnected(std::function<void(void)> callback) {
+    this->_onConnected = callback;
+  }
+  void onReconnect(std::function<void(void)> callback) {
+    this->_onReconnect = callback;
+  }
+  void onDisconnected(std::function<void(void)> callback) {
+    this->_onDisconnected = callback;
   }
 
   void static callback(char* topic, byte* message, unsigned int length) {
@@ -55,18 +73,23 @@ class MQTTC {
   }
 
   void publish(String key, String value) {
-    client.publish(String("espFeeder/" + key).c_str(), value.c_str());
+    client.publish(String(_deviceid + "/" + key).c_str(), value.c_str());
   }
 
   void reconnect() {
     // Loop until we're reconnected
+    if (this->_onReconnect) {
+      this->_onReconnect();
+    }
     while (!client.connected() && attemp <= MAX_ATTEMP) {
       Serial.print("Attempting MQTT connection...");
       // Attempt to connect
-      if (client.connect("ESP8266Client")) {
+      if (client.connect("ESP8266Client")) { // TODO
         Serial.println("connected");
         // Subscribe
-        client.subscribe("espFeeder/controller");
+        client.subscribe(String(_deviceid + "/control/#").c_str());
+        // client.subscribe("espFeeder/controller");
+        // client.subscribe("espFeeder/controller");
       } else {
         Serial.print("failed, rc=");
         Serial.print(client.state());
@@ -76,6 +99,9 @@ class MQTTC {
       }
       attemp++;
     }
+    if (attemp >= MAX_ATTEMP && this->_onDisconnected) {
+      this->_onDisconnected();
+    }
   }
 
   void begin() {
@@ -84,12 +110,16 @@ class MQTTC {
       client.setCallback(callback);
     }
     begun = true;
+    _deviceid = my_preference.getDeviceID();
   }
 
   void loop() {
     if (begun) {
       if (!client.connected()) {
         reconnect();
+      }
+      if (this->_onConnected) {
+        this->_onConnected();
       }
       // attemp = 0;
       client.loop();

@@ -14,7 +14,7 @@
 
 //Force RTC update and store on EEPROM
 //change this to a random number between 0-255 to force time update
-#define FORCE_RTC_UPDATE 5
+#define FORCE_RTC_UPDATE 7
 
 RTC_DS3231 RTC;
 

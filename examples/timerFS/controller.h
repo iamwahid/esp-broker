@@ -5,7 +5,13 @@
 #include <Servo.h>
 #include <RTClib.h>
 
+
 Servo servo;
+
+void delayMs(uint32_t time) {
+	uint32_t delayUntil = millis() + time;
+	while (millis() < delayUntil) yield();
+}
 
 struct strDateTime
 {
@@ -23,6 +29,7 @@ struct FeedingObject {
   strDateTime timestamp;
   String timestr;
   long count;
+  long current_count = 0;
   bool triggered = false;
   FeedingObject() {};
   FeedingObject(String feed) { // timestamp:count
@@ -41,13 +48,16 @@ struct FeedingObject {
   }
 
   void handler() {
-    for (int i = 0; i < this->count; i++) {
+    if (this->current_count < this->count) {
       servo.write(0);
       delay(3000);
       servo.write(180);
       delay(2000);
+      this->current_count++;
+    } else {
+      this->triggered = false;
+      this->current_count = 0;
     }
-    // triggered = true;
   }
 };
 
@@ -55,6 +65,8 @@ class Feeder {
   public:
   int feeding_size = 0;
   int count = 1;
+  int feed_id;
+  int curr_count = 0;
   std::vector<FeedingObject> feedingList;
   Feeder() {}
 
@@ -80,10 +92,15 @@ class Feeder {
   }
 
   void triggerFeedings(DateTime tm){
-    for (FeedingObject fd : feedingList) {
-      if (fd.timestamp.hour == tm.hour() && fd.timestamp.minute == tm.minute() && (fd.timestamp.second >= tm.second() && fd.timestamp.second <= tm.second()+5)) {
-        Serial.println("triggering");
-        fd.handler();
+    for (int i = 0; i < feeding_size; i++) {
+      if (!feedingList[i].triggered && feedingList[i].timestamp.hour == tm.hour() && feedingList[i].timestamp.minute == tm.minute() && (feedingList[i].timestamp.second >= tm.second() && feedingList[i].timestamp.second <= tm.second()+5)) {
+        feedingList[i].triggered = true;
+        feedingList[i].current_count = 0;
+        this->feed_id = i;
+        this->count = feedingList[i].count;
+        this->curr_count = 0;
+        this->is_feed = true;
+        break;
       }
     }
   }
@@ -110,7 +127,8 @@ class Feeder {
 
   void addTimer(String timestp, int count = 3) {
     if (!timestp.equals("")) {
-      feedingList.emplace_back(timestp + "." + String(count));
+      if (!hasTimer(timestp))
+        feedingList.emplace_back(timestp + "." + String(count));
     }
     this->feeding_size = feedingList.size();
   }
@@ -165,15 +183,32 @@ class Feeder {
 
   void loop() {
     if (is_feed) {
-      is_feed = false;
-      for (int i = 0; i < this->count; i++) {
+      if (curr_count < count) {
         Serial.println("Feeding....");
         servo.write(0);
         delay(3000);
         servo.write(180);
         delay(2000);
+        curr_count++;
+      } else {
+        is_feed = false;
+        curr_count = 0;
+        if (this->feed_id > 0) {
+          feedingList[this->feed_id].triggered = false;
+          feedingList[this->feed_id].current_count = 0;
+          this->feed_id = -1;
+        }
       }
     }
+
+    // for (int i = 0; i < feeding_size; i++) {
+    //   if (feedingList[i].triggered) {
+    //     Serial.println("triggering");
+    //     feedingList[i].handler();
+    //     this->is_feed = true;
+    //     this->curr_count = this->count;
+    //   }
+    // }
   }
 
   const int max_count = 100;
@@ -189,3 +224,49 @@ class Feeder {
   String filename = "/timers.csv";
   bool is_feed = false;
 } feeder;
+
+class Blink {
+  public:
+  bool isBlinking = false;
+  Ticker blinker;
+  int PIN;
+  Blink(int pin) {
+    PIN = pin;
+    pinMode(PIN, OUTPUT);
+  }
+  void LED_BLINK() {
+    digitalWrite(PIN, !digitalRead(PIN));
+  }
+
+  static void cast(Blink *blink) {
+    blink->LED_BLINK();
+  }
+
+  void on() {
+    digitalWrite(PIN, HIGH);
+  }
+
+  void off() {
+    digitalWrite(PIN, LOW);
+  }
+
+  void stop() {
+    LED_BLINK();
+    if (isBlinking) {
+      blinker.detach();
+      isBlinking = false;
+    }
+  }
+
+  void start(uint32_t time = 250) {
+    blinker.attach_ms(time, cast, this);
+    isBlinking = true;
+  }
+
+  void toggle(uint32_t time = 250) {
+    if (isBlinking)
+      stop();
+    else
+      start(time);
+  }
+};

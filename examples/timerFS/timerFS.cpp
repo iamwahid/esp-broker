@@ -33,6 +33,9 @@ bool need_restart = false;
 String _secretkey;
 String _device_ID;
 
+Blink powerLed(D8);
+Blink networkLed(D7);
+
 AsyncWebServer server(80); // Create AsyncWebServer object on port 80
 
 void getJarak() {
@@ -150,7 +153,8 @@ void serverInit() {
   });
 
   server.on("/status_pakan", HTTP_GET, [](AsyncWebServerRequest *request){
-    String json_pakan = "{ \"status\": \"" + pakanStatus(jarak) + "\", \"jarak\": "+ String(jarak) +"}";
+    String _status = feeder.is_feed ? "OPEN" : "CLOSE";
+    String json_pakan = "{  \"status\": \""+_status+"\", \"level\": \"" + pakanLevel(jarak) + "\", \"persen\": "+ String(pakanMap(jarak)) +"}";
     request->send(200, "application/json", json_pakan.c_str());
   });
 
@@ -211,6 +215,9 @@ void serverInit() {
         _secretkey = request->getParam("secret_key", true)->value();
     }
 
+    // Serial.println(_deviceid);
+    // Serial.println(_secretkey);
+
     if (!my_preference.isRegistered()) {
       if (_deviceid.equals(_device_ID) && _secretkey.length() >= 6) {
         my_preference.setSecretKey(_secretkey);
@@ -224,7 +231,6 @@ void serverInit() {
   server.on("/device", HTTP_POST, [](AsyncWebServerRequest *request){
     String _deviceid;
     String _master;
-    String _master_key = "12348765";
     
     if (request->hasParam("device_id", true)) {
         _deviceid = request->getParam("device_id", true)->value();
@@ -234,7 +240,7 @@ void serverInit() {
         _master = request->getParam("master_key", true)->value();
     }
 
-    if (_master.equals(_master_key) && _deviceid.length() > 6) {
+    if (!my_preference.isRegistered() && _master.equals(my_preference.getMasterKey()) && _deviceid.length() >= 6) {
       my_preference.setDeviceID(_deviceid);
       request->send(200, "text/plain", "OK");
     }
@@ -328,7 +334,7 @@ void mqttCallback(char* topic, byte* message, unsigned int length) {
     //     feeder.feed(count);
     //   }
     // } else 
-    if (String(topic).equals( _device_ID + "/feeder/config") ) {
+    if (String(topic).equals( _device_ID + "/control/config") ) {
       String _ssid = root["ssid"];
       String _pass = root["pass"];
       String _ap_pass = root["ap_pass"];
@@ -336,20 +342,21 @@ void mqttCallback(char* topic, byte* message, unsigned int length) {
       my_preference.setPass(_pass);
       my_preference.setAPPass(_ap_pass);
       need_restart = true;
-    } else if (String(topic).equals( _device_ID + "/feeder/beri_pakan") ) {
-      feeder.feed(messageTemp.toInt());
-    } else if (String(topic).equals( _device_ID + "/feeder/timer/add") ) {
+    } else if (String(topic).equals( _device_ID + "/control/beri_pakan") ) {
+      long count = root["count"];
+      feeder.feed(count);
+    } else if (String(topic).equals( _device_ID + "/control/timer/add") ) {
       String timestp = root["time"];
       long count = root["count"];
       feeder.addTimer(timestp, count);
       is_save = true;
-    } else if (String(topic).equals( _device_ID + "/feeder/timer/edit") ) {
+    } else if (String(topic).equals( _device_ID + "/control/timer/edit") ) {
       String timestp = root["time"];
       String old_time = root["old_time"];
       long count = root["count"];
       feeder.updateTimer(old_time, timestp, count);
       is_save = true;
-    } else if (String(topic).equals( _device_ID + "/feeder/timer/delete") ) {
+    } else if (String(topic).equals( _device_ID + "/control/timer/delete") ) {
       String timestp = root["time"];
       feeder.deleteTimer(timestp);
       is_save = true;
@@ -358,6 +365,7 @@ void mqttCallback(char* topic, byte* message, unsigned int length) {
 }
 
 void setup() {
+  powerLed.on();
   my_preference.begin();
   FSys.begin();
   Serial.begin(9600);
@@ -374,6 +382,17 @@ void setup() {
   _secretkey = my_preference.getSecretKey();
 
   if (wifiConnect()) {
+    mqttc_client.onConnected([&](){
+      networkLed.stop();
+      networkLed.on();
+    });
+    mqttc_client.onDisconnected([&](){
+      networkLed.stop();
+      networkLed.off();
+    });
+    mqttc_client.onReconnect([&](){
+      networkLed.start();
+    });
     mqttc_client.setCallback(mqttCallback);
     mqttc_client.begin();
   }
@@ -392,23 +411,27 @@ void saveConfig() {
 
 void loop() {
   cTime = millis();
+  mqttc_client.loop();
   if ((unsigned long) cTime - pTime > interval) {
     pTime = cTime;
-    // feeder.triggerFeedings(getNTPTime());
+
+    if (mqttc_client.begun) {
+      if (feeder.is_feed) {
+        mqttc_client.publish("feeder/status", "OPEN");
+      } else {
+        mqttc_client.publish("feeder/status", "CLOSE");
+      }
+      mqttc_client.publish("feeder/time", datetime);
+      mqttc_client.publish("feeder/jarak", String(jarak) + " cm");
+      mqttc_client.publish("feeder/pakan", pakanLevel(jarak));
+      mqttc_client.publish("feeder/timers", feeder.json_timers());
+    }
     feeder.triggerFeedings(RTC.now());
+    // feeder.triggerFeedings(getNTPTime());
+    feeder.loop();
+    
     getTime();
     getJarak();
-
-    if (feeder.is_feed) {
-      mqttc_client.publish(_device_ID + "/feeder/status", "OPEN");
-    } else {
-      mqttc_client.publish(_device_ID + "/feeder/status", "CLOSE");
-    }
-
-    mqttc_client.publish(_device_ID + "/feeder/time", datetime);
-    mqttc_client.publish(_device_ID + "/feeder/jarak", String(jarak) + " cm");
-    mqttc_client.publish(_device_ID + "/feeder/pakan", pakanStatus(jarak));
-    mqttc_client.publish(_device_ID + "/feeder/timers", feeder.json_timers());
     
     if (is_save) {
       is_save= false;
@@ -417,24 +440,34 @@ void loop() {
     
     if (need_restart) {
       need_restart = false;
+      powerLed.stop();
+      powerLed.off();
+      networkLed.stop();
+      networkLed.off();
       ESP.reset();
     }
-    feeder.loop();
   }
-
-  mqttc_client.loop();
 
   if (digitalRead(0) == LOW) {
     saveConfig();
-
-    delay(5000);
+    powerLed.start();
+    delay(2000);
     if (digitalRead(0) == LOW) {
-      Serial.println("Reseting...");
-      FSys.deleteFile(feeder.filename);
-      my_preference.reset();
-      delay(1000);
-      ESP.restart();
+      delay(5000);
+      if (digitalRead(0) == LOW) {
+        powerLed.stop();
+        powerLed.off();
+        networkLed.off();
+        while(digitalRead(0) == LOW);
+        Serial.println("Reseting...");
+        FSys.deleteFile(feeder.filename);
+        my_preference.reset();
+        delay(1000);
+        ESP.restart();
+      }
     }
+    powerLed.stop();
+    powerLed.on();
   }
 
   if (Serial.available() > 1) {
@@ -442,6 +475,17 @@ void loop() {
     Serial.print("USER: ");
     Serial.println(line);
     line.trim();
-    feeder.addTimerStr(line);
+    if (line.indexOf("[device_id:")>-1) {
+      String _deviceid = line.substring(line.indexOf(':')+1, line.indexOf(']'));
+      if (!my_preference.isRegistered()) {
+        Serial.print("Set Device ID: ");
+        Serial.println(_deviceid);
+        if (my_preference.setDeviceID(_deviceid)) 
+          _device_ID = _deviceid;
+      }
+    } else {
+      feeder.addTimerStr(line);
+    }
+
   }
 }
