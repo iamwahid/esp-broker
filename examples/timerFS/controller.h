@@ -25,6 +25,82 @@ struct strDateTime
   boolean valid;
 };
 
+class Sweep {
+  public:
+  bool isSweeping = false;
+  Ticker sweeper;
+  int PIN;
+  Servo sweepr;
+  bool OPEN = false;
+  int open_state = 0;
+  int close_state = 180;
+  int sweep_count = 1;
+  int curr_sweep_count = 0;
+
+  Sweep(int pin) {
+    PIN = pin;
+    sweepr.attach(PIN);
+  }
+
+  static void cast(Sweep *sweep) {
+    sweep->SWEEP();
+  }
+
+  void open() {
+    OPEN = true;
+    sweepr.write(open_state);
+    Serial.println("Open....");
+  }
+
+  void close() {
+    OPEN = false;
+    sweepr.write(close_state);
+    Serial.println("Close....");
+  }
+
+  void toggle() {
+    if (OPEN) {
+      close();
+      if (curr_sweep_count < sweep_count && isSweeping) {
+        curr_sweep_count++;
+      }
+    } else {
+      open();
+    }
+  }
+
+  void SWEEP() {
+    if (curr_sweep_count < sweep_count) {
+      toggle();
+    }
+  }
+
+  void stopT() {
+    SWEEP();
+    if (isSweeping) {
+      sweeper.detach();
+      isSweeping = false;
+      Serial.println("stop ticker....");
+    }
+  }
+
+  void startT(int count = 1, uint32_t time = 3000) {
+    sweeper.attach_ms(time, cast, this);
+    sweep_count = count;
+    curr_sweep_count = 0;
+    isSweeping = true;
+    
+    Serial.println("start ticker....");
+  }
+
+  void toggleT(int count = 1, uint32_t time = 3000) {
+    if (isSweeping)
+      stopT();
+    else
+      startT(count, time);
+  }
+};
+
 struct FeedingObject {
   strDateTime timestamp;
   String timestr;
@@ -49,10 +125,10 @@ struct FeedingObject {
 
   void handler() {
     if (this->current_count < this->count) {
-      servo.write(0);
-      delay(3000);
-      servo.write(180);
-      delay(2000);
+      // servo.write(0);
+      // delay(3000);
+      // servo.write(180);
+      // delay(2000);
       this->current_count++;
     } else {
       this->triggered = false;
@@ -68,11 +144,12 @@ class Feeder {
   int feed_id;
   int curr_count = 0;
   std::vector<FeedingObject> feedingList;
+  Sweep * servo_sweeper = new Sweep(2);
   Feeder() {}
 
   void begin() {
-    servo.attach(2);
-    servo.write(180);
+    servo_sweeper->stopT();
+    servo_sweeper->close();
   }
 
   void toFeedingList() {
@@ -177,22 +254,20 @@ class Feeder {
 
 
   void feed(int count, bool start = true) {
-      this->count = count;
-      this->is_feed = start;
+      if (!servo_sweeper->isSweeping) {
+        this->count = count;
+        this->is_feed = start;
+      }
   }
 
   void loop() {
     if (is_feed) {
-      if (curr_count < count) {
-        Serial.println("Feeding....");
-        servo.write(0);
-        delay(3000);
-        servo.write(180);
-        delay(2000);
-        curr_count++;
-      } else {
+      Serial.println(servo_sweeper->curr_sweep_count);
+      if (!servo_sweeper->isSweeping) {
+        servo_sweeper->startT(count);
+      } else if (servo_sweeper->isSweeping && servo_sweeper->curr_sweep_count >= count) {
+        servo_sweeper->stopT();
         is_feed = false;
-        curr_count = 0;
         if (this->feed_id > 0) {
           feedingList[this->feed_id].triggered = false;
           feedingList[this->feed_id].current_count = 0;
@@ -200,6 +275,25 @@ class Feeder {
         }
       }
     }
+
+    // if (is_feed) {
+    //   if (curr_count < count) {
+    //     Serial.println("Feeding....");
+    //     servo.write(0);
+    //     delay(3000);
+    //     servo.write(180);
+    //     delay(2000);
+    //     curr_count++;
+    //   } else {
+    //     is_feed = false;
+    //     curr_count = 0;
+    //     if (this->feed_id > 0) {
+    //       feedingList[this->feed_id].triggered = false;
+    //       feedingList[this->feed_id].current_count = 0;
+    //       this->feed_id = -1;
+    //     }
+    //   }
+    // }
 
     // for (int i = 0; i < feeding_size; i++) {
     //   if (feedingList[i].triggered) {
@@ -224,6 +318,7 @@ class Feeder {
   String filename = "/timers.csv";
   bool is_feed = false;
 } feeder;
+
 
 class Blink {
   public:

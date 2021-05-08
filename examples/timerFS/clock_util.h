@@ -5,6 +5,7 @@
 #include <NTPClient.h> //NTPClient by Arduino
 #include <WiFiUdp.h>
 #include <EEPROM.h>
+#include <functional>
 
 
 #define NTP_SERVER "0.us.pool.ntp.org"
@@ -14,11 +15,13 @@
 
 //Force RTC update and store on EEPROM
 //change this to a random number between 0-255 to force time update
-#define FORCE_RTC_UPDATE 7
+#define FORCE_RTC_UPDATE 1
 
 RTC_DS3231 RTC;
 
 WiFiUDP ntpUDP;
+
+uint32_t lastTime;
 
 
 // You can specify the time server pool and the offset, (in seconds)
@@ -29,6 +32,9 @@ int timeUpdated = 2;
 char datetime[30];
 
 bool RTCbegun = false;
+std::function<void(void)> _onTimeSync = nullptr;
+std::function<void(void)> _onTimeSynced = nullptr;
+
 
 void startRTC() {
   EEPROM.begin(4);
@@ -39,7 +45,18 @@ void startRTC() {
   RTCbegun = true;
 }
 
-void syncTime() {
+void onTimeSync(std::function<void(void)> callback) {
+  _onTimeSync = callback;
+}
+
+void onTimeSynced(std::function<void(void)> callback) {
+  _onTimeSynced = callback;
+}
+
+void syncTime(bool force = false) {
+  if (_onTimeSync) {
+    _onTimeSync();
+  }
   // if (! RTC.begin()) {
   //   Serial.println("Couldn't find RTC");
   //   while (1);
@@ -62,10 +79,16 @@ void syncTime() {
   Serial.print(" == ");
   Serial.print(FORCE_RTC_UPDATE);
   Serial.println(" ?");
-  if (addvalue != FORCE_RTC_UPDATE) {
+  if ((addvalue != FORCE_RTC_UPDATE) || RTC.lostPower() || force) {
     //if(true == false){
     //time hasn' it been setup
-    Serial.println("Forcing Time Update");
+    if (RTC.lostPower()) {
+      Serial.println("Lost Power...");
+    }
+
+    if (force) {
+      Serial.println("Forcing Time Update");
+    }
     
     timeClient.begin();
     timeClient.update();
@@ -86,6 +109,10 @@ void syncTime() {
     Serial.print(FORCE_RTC_UPDATE);
     Serial.println("!");
   }
+
+  if (_onTimeSynced) {
+    _onTimeSynced();
+  }
 }
 
 DateTime getNTPTime() {
@@ -93,9 +120,14 @@ DateTime getNTPTime() {
 }
 
 void getTime() {
+  uint32_t cunix = RTC.now().unixtime();
+  if (lastTime == cunix) {
+    syncTime(true);
+  }
   DateTime now = RTCbegun ? RTC.now() : getNTPTime();
   sprintf( datetime, "%02d-%02d-%02d %02d:%02d:%02d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second() );
   Serial.println(datetime);
+  lastTime = cunix;
 // calculate a date which is 7 days and 30 seconds into the future
 //    DateTime future (now + TimeSpan(7, 12, 30, 6));
 //  

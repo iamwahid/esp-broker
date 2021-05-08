@@ -1,5 +1,7 @@
 #define ESPBROKER_AS_LISTENER 1
+// #define DEBUG_ESP_MDNS 1
 
+#include <ESP8266mDNS.h>
 #include <espbroker.h>
 #include <vector>
 #include <map>
@@ -8,6 +10,9 @@
 
 #include <ESPAsyncWebServer.h>
 #include <StringArray.h>
+
+#include <AddrList.h>
+#include <lwip/dns.h>
 
 #include <ArduinoJson.h>
 
@@ -29,7 +34,7 @@ int jarak;
 
 bool is_save = false;
 bool need_restart = false;
-
+bool mdns_started = false;
 String _secretkey;
 String _device_ID;
 
@@ -37,6 +42,8 @@ Blink powerLed(D8);
 Blink networkLed(D7);
 
 AsyncWebServer server(80); // Create AsyncWebServer object on port 80
+
+MDNSResponder mdns;
 
 void getJarak() {
   // Clears the trigPin
@@ -364,8 +371,24 @@ void mqttCallback(char* topic, byte* message, unsigned int length) {
   }
 }
 
+void startMDNS() {
+  if (mdns.begin(_device_ID, WiFi.localIP()))
+  {
+    Serial.println(F("mDNS responder started"));
+    Serial.print(F("My name is: "));
+    Serial.println(_device_ID);
+
+    // Add service to MDNS-SD
+    mdns.addService("http", "tcp", 80);
+    mdns.addServiceTxt("http", "tcp", "ip_address", WiFi.localIP().toString());
+    mdns.addServiceTxt("http", "tcp", "info", "Cat Feeder");
+    mdns.addService("dns", "udp", 5353);
+
+    mdns_started = true;
+  }
+}
+
 void setup() {
-  powerLed.on();
   my_preference.begin();
   FSys.begin();
   Serial.begin(9600);
@@ -377,7 +400,17 @@ void setup() {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
 
+  onTimeSync([&](){
+    powerLed.start();
+  });
+
+  onTimeSynced([&](){
+    powerLed.stop();
+    powerLed.on();
+  });
+
   startRTC();
+  powerLed.on();
   _device_ID = my_preference.getDeviceID();
   _secretkey = my_preference.getSecretKey();
 
@@ -395,9 +428,28 @@ void setup() {
     });
     mqttc_client.setCallback(mqttCallback);
     mqttc_client.begin();
+    startMDNS();
   }
+  
   serverInit();
 
+  for (auto a : addrList) {
+    Serial.printf("IF='%s' IPv6=%d local=%d hostname='%s' addr= %s",
+              a.ifname().c_str(),
+              a.isV6(),
+              a.isLocal(),
+              a.ifhostname(),
+              a.toString().c_str());
+
+    if (a.isLegacy()) {
+      Serial.printf(" / mask:%s / gw:%s",
+                a.netmask().toString().c_str(),
+                a.gw().toString().c_str());
+    }
+
+    Serial.println();
+
+  }
 }
 
 void saveConfig() {
@@ -411,6 +463,9 @@ void saveConfig() {
 
 void loop() {
   cTime = millis();
+  if (mdns_started) {
+    mdns.update();
+  }
   mqttc_client.loop();
   if ((unsigned long) cTime - pTime > interval) {
     pTime = cTime;
@@ -423,6 +478,7 @@ void loop() {
       }
       mqttc_client.publish("feeder/time", datetime);
       mqttc_client.publish("feeder/jarak", String(jarak) + " cm");
+      mqttc_client.publish("feeder/persen", String(pakanMap(jarak)));
       mqttc_client.publish("feeder/pakan", pakanLevel(jarak));
       mqttc_client.publish("feeder/timers", feeder.json_timers());
     }
