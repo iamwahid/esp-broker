@@ -8,7 +8,9 @@
 
 #include "clock_util.h"
 
+#include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
 #include <StringArray.h>
 
 #include <AddrList.h>
@@ -24,8 +26,10 @@
 
 unsigned long cTime;
 unsigned long pTime = 1000;
-unsigned long interval = 1000;
+unsigned long interval = 10000;
 
+unsigned long secondTime;
+unsigned long psecondTime = 1000;
 int trigPin  = D6;
 int echoPin  = D5;
 
@@ -250,12 +254,14 @@ void serverInit() {
     if (!my_preference.isRegistered() && _master.equals(my_preference.getMasterKey()) && _deviceid.length() >= 6) {
       my_preference.setDeviceID(_deviceid);
       request->send(200, "text/plain", "OK");
+      need_restart = true;
     }
 
     request->send(400, "text/plain", "Bad Request");
   });
 
   // Start server
+  AsyncElegantOTA.begin(&server);    // Start ElegantOTA
   server.begin();
 }
 
@@ -409,7 +415,9 @@ void setup() {
     powerLed.on();
   });
 
-  startRTC();
+  if (ENV > 0) {
+    startRTC();
+  }
   powerLed.on();
   _device_ID = my_preference.getDeviceID();
   _secretkey = my_preference.getSecretKey();
@@ -428,7 +436,11 @@ void setup() {
     });
     mqttc_client.setCallback(mqttCallback);
     mqttc_client.begin();
-    startMDNS();
+    mqttc_client.publish("feeder/power", "OFF");
+    if (ENV > 0) {
+      startMDNS();
+    }
+    syncTime(true);
   }
   
   serverInit();
@@ -463,6 +475,8 @@ void saveConfig() {
 
 void loop() {
   cTime = millis();
+  secondTime = cTime;
+  AsyncElegantOTA.loop();
   if (mdns_started) {
     mdns.update();
   }
@@ -482,9 +496,12 @@ void loop() {
       mqttc_client.publish("feeder/pakan", pakanLevel(jarak));
       mqttc_client.publish("feeder/timers", feeder.json_timers());
     }
-    feeder.triggerFeedings(RTC.now());
-    // feeder.triggerFeedings(getNTPTime());
-    feeder.loop();
+    if (ENV > 0) {
+      feeder.triggerFeedings(RTC.now());
+    } else {
+      feeder.triggerFeedings(getNTPTime());
+    }
+    
     
     getTime();
     getJarak();
@@ -495,6 +512,7 @@ void loop() {
     }
     
     if (need_restart) {
+      mqttc_client.publish("feeder/power", "OFF");
       need_restart = false;
       powerLed.stop();
       powerLed.off();
@@ -504,6 +522,15 @@ void loop() {
     }
   }
 
+  if ((unsigned long) secondTime - psecondTime > 1000) {
+    if (mqttc_client.begun) {
+      mqttc_client.publish("feeder/power", "ON");
+    }
+    psecondTime = secondTime;
+    feeder.loop();
+  }
+
+
   if (digitalRead(0) == LOW) {
     saveConfig();
     powerLed.start();
@@ -511,6 +538,7 @@ void loop() {
     if (digitalRead(0) == LOW) {
       delay(5000);
       if (digitalRead(0) == LOW) {
+        mqttc_client.publish("feeder/power", "OFF");
         powerLed.stop();
         powerLed.off();
         networkLed.off();

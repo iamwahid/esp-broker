@@ -15,7 +15,7 @@
 
 //Force RTC update and store on EEPROM
 //change this to a random number between 0-255 to force time update
-#define FORCE_RTC_UPDATE 1
+#define FORCE_RTC_UPDATE 8
 
 RTC_DS3231 RTC;
 
@@ -120,14 +120,22 @@ DateTime getNTPTime() {
 }
 
 void getTime() {
-  uint32_t cunix = RTC.now().unixtime();
-  if (lastTime == cunix) {
+  DateTime RTCnow = RTC.now();
+  DateTime NTPnow = getNTPTime();
+  DateTime now = RTCbegun ? RTCnow : NTPnow;
+  uint32_t rtcunix = RTCnow.unixtime();
+  uint32_t ntpunix = NTPnow.unixtime();
+
+  Serial.print(rtcunix);
+  Serial.print(" == ");
+  Serial.println(ntpunix);
+
+  if (lastTime == rtcunix || (rtcunix < (ntpunix - 10)) ) {
     syncTime(true);
   }
-  DateTime now = RTCbegun ? RTC.now() : getNTPTime();
   sprintf( datetime, "%02d-%02d-%02d %02d:%02d:%02d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second() );
   Serial.println(datetime);
-  lastTime = cunix;
+  lastTime = rtcunix;
 // calculate a date which is 7 days and 30 seconds into the future
 //    DateTime future (now + TimeSpan(7, 12, 30, 6));
 //  

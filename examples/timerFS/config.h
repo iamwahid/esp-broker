@@ -9,6 +9,8 @@
 
 using namespace espbroker;
 
+const int ENV = 1;
+
 class MyPreference {
   private:
   const char * MASTER_KEY = "12348765";
@@ -24,7 +26,7 @@ class MyPreference {
   // long_char_t _device_id = "USW1000001";
   // long_char_t _ap_name = "FEEDR-USW1000001";
   long_char_t _ap_pass = "12348765";
-  long_char_t _ssid = "Mitra Anak Negeri 4";
+  long_char_t _ssid = "Mitra";
   long_char_t _pass = "12348765";
   long_char_t _secret_key = "";
   long _default_feed = 3;

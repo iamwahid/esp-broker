@@ -170,7 +170,7 @@ class Feeder {
 
   void triggerFeedings(DateTime tm){
     for (int i = 0; i < feeding_size; i++) {
-      if (!feedingList[i].triggered && feedingList[i].timestamp.hour == tm.hour() && feedingList[i].timestamp.minute == tm.minute() && (feedingList[i].timestamp.second >= tm.second() && feedingList[i].timestamp.second <= tm.second()+5)) {
+      if (!feedingList[i].triggered && feedingList[i].timestamp.hour == tm.hour() && feedingList[i].timestamp.minute == tm.minute() && (feedingList[i].timestamp.second >= tm.second() && feedingList[i].timestamp.second <= tm.second()+30)) {
         feedingList[i].triggered = true;
         feedingList[i].current_count = 0;
         this->feed_id = i;
